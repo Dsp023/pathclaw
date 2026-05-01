@@ -105,7 +105,8 @@ export async function presentPlanAndConfirm(plan: ActionPlan): Promise<boolean> 
   return confirm;
 }
 
-export async function executePlan(plan: ActionPlan): Promise<void> {
+export async function executePlan(plan: ActionPlan): Promise<string[]> {
+  const results: string[] = [];
   const errors: string[] = [];
 
   for (const action of plan.actions) {
@@ -132,10 +133,12 @@ export async function executePlan(plan: ActionPlan): Promise<void> {
         console.log(chalk.green(`  ✓ Command executed successfully.`));
         if (stdout.trim()) console.log(chalk.gray("    " + stdout.trim()));
         if (stderr.trim()) console.log(chalk.red("    " + stderr.trim()));
+        results.push(`[raw_shell success] ${action.command}\nSTDOUT:\n${stdout}\nSTDERR:\n${stderr}`);
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         console.log(chalk.red(`  ✗ Command failed: ${msg}`));
         errors.push(msg);
+        results.push(`[raw_shell error] ${action.command}\n${msg}`);
       }
       continue;
     }
@@ -143,6 +146,7 @@ export async function executePlan(plan: ActionPlan): Promise<void> {
     if (action.type === "shell") {
       if (!SHELL_ALLOWED_CATEGORIES.includes(action.category)) {
         console.log(chalk.red(`  Blocked shell category: ${action.category}`));
+        results.push(`[shell blocked] Category not allowed: ${action.category}`);
         continue;
       }
       const { confirmShell } = await inquirer.prompt([{
@@ -151,11 +155,19 @@ export async function executePlan(plan: ActionPlan): Promise<void> {
         message: `  Run: ${chalk.cyan(action.description)}?`,
         default: false,
       }]);
-      if (!confirmShell) { console.log(chalk.gray(`  Skipped.`)); continue; }
+      if (!confirmShell) {
+        console.log(chalk.gray(`  Skipped.`));
+        results.push(`[shell skipped] ${action.description}`);
+        continue;
+      }
 
       const isWin = process.platform === "win32";
       const template = isWin ? SHELL_COMMANDS[action.category].win : SHELL_COMMANDS[action.category].unix;
-      if (!template) { console.log(chalk.yellow(`  No command for this platform.`)); continue; }
+      if (!template) {
+        console.log(chalk.yellow(`  No command for this platform.`));
+        results.push(`[shell error] No template for ${process.platform}`);
+        continue;
+      }
 
       let cmd = template;
       for (const [k, v] of Object.entries(action.args ?? {})) {
@@ -211,10 +223,12 @@ Add-Type -TypeDefinition $source
         const { stdout } = await execAsync(cmd);
         console.log(chalk.green(`  ✓ ${action.description}`));
         if (stdout.trim()) console.log(chalk.gray("    " + stdout.trim()));
+        results.push(`[shell success] ${action.description}\nSTDOUT:\n${stdout}`);
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         console.log(chalk.red(`  ✗ Failed: ${msg}`));
         errors.push(msg);
+        results.push(`[shell error] ${action.description}\n${msg}`);
       }
       continue;
     }
@@ -222,6 +236,7 @@ Add-Type -TypeDefinition $source
     const targetPath = action.type === "move" ? action.from : (action as { path: string }).path;
     if (isBlacklisted(targetPath)) {
       console.log(chalk.bgRed.white(`  BLOCKED: ${targetPath}`));
+      results.push(`[fs blocked] Path is blacklisted: ${targetPath}`);
       continue;
     }
 
@@ -229,19 +244,23 @@ Add-Type -TypeDefinition $source
       if (action.type === "delete") {
         await fs.rm(action.path, { recursive: true, force: true });
         console.log(chalk.red(`  ✓ Deleted: ${action.path}`));
+        results.push(`[delete success] ${action.path}`);
       } else if (action.type === "move") {
         await fs.mkdir(path.dirname(action.to), { recursive: true });
         await fs.rename(action.from, action.to);
         console.log(chalk.blue(`  ✓ Moved: ${action.from} → ${action.to}`));
+        results.push(`[move success] ${action.from} -> ${action.to}`);
       } else if (action.type === "rename") {
         const dir = path.dirname(action.path);
         await fs.rename(action.path, path.join(dir, action.newName));
         console.log(chalk.yellow(`  ✓ Renamed: ${action.path} → ${action.newName}`));
+        results.push(`[rename success] ${action.path} -> ${action.newName}`);
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       console.log(chalk.red(`  ✗ Error: ${msg}`));
       errors.push(msg);
+      results.push(`[fs error] ${action.type}: ${msg}`);
     }
   }
 
@@ -250,4 +269,6 @@ Add-Type -TypeDefinition $source
   } else {
     console.log(chalk.green.bold("\n  ✅ Done."));
   }
+
+  return results;
 }

@@ -45,6 +45,13 @@ SUPER POWER (GOD MODE):
 - Use this to solve complex tasks, run diagnostics, kill processes, or script solutions.
 - The user will be asked to confirm before the command runs.
 
+AUTONOMOUS AGENT LOOP:
+- You operate in an autonomous loop.
+- When you execute an ACTION JSON plan, the system will execute it and automatically reply with the terminal output (STDOUT/STDERR).
+- You must analyze the output and decide what to do next.
+- If you need to run another command to achieve the user's goal, output another ACTION JSON plan.
+- If you are completely finished with the user's overarching goal, output a plain text conversational message explaining what you did.
+
 SAFETY RULES (always follow):
 - NEVER touch: C:\\Windows, Program Files, .git, node_modules, .ssh, .env
 - Always explain what you are about to do before the JSON
@@ -200,87 +207,97 @@ export async function chatCommand() {
 
     // Auto scan if action keywords detected
     const scanContext = await autoScan(input);
+    history.push({ role: "user", content: input });
 
-    // Build prompt — keep system context separate from conversation
-    const recentHistory = history.slice(-16);
-    const historyText = recentHistory
-      .map((m) => `${m.role === "user" ? "User" : "PathClaw"}: ${m.content}`)
-      .join("\n");
+    let stepCount = 0;
+    const MAX_STEPS = 10;
 
-    const fullPrompt = `SYSTEM CONTEXT:
+    while (stepCount < MAX_STEPS) {
+      stepCount++;
+      const recentHistory = history.slice(-20);
+      const historyText = recentHistory
+        .map((m) => `${m.role === "user" ? "User" : "PathClaw"}: ${m.content}`)
+        .join("\n");
+
+      const fullPrompt = `SYSTEM CONTEXT:
 ${sysContext}
 ${scanContext}
 
 CONVERSATION HISTORY:
 ${historyText}
 
-User: ${input}
-
 PathClaw:`;
 
-    history.push({ role: "user", content: input });
+      // Call AI
+      const spinner = ora("").start();
+      spinner.text = chalk.gray(stepCount > 1 ? `thinking (step ${stepCount})...` : "thinking...");
 
-    // Call AI
-    const spinner = ora("").start();
-    spinner.text = chalk.gray("thinking...");
-
-    let responseText = "";
-    try {
-      const { text } = await callAI(fullPrompt, SYSTEM);
-      spinner.stop();
-      responseText = text.trim();
-    } catch (err) {
-      spinner.fail(chalk.red("Error: " + String(err)));
-      continue;
-    }
-
-    // Check if it's an action plan (JSON) or chat response
-    if (isActionRequest(responseText)) {
+      let responseText = "";
       try {
-        const jsonStr = extractJSON(responseText);
-        if (!jsonStr) throw new Error("No JSON found");
+        const { text } = await callAI(fullPrompt, SYSTEM);
+        spinner.stop();
+        responseText = text.trim();
+      } catch (err) {
+        spinner.fail(chalk.red("Error: " + String(err)));
+        break; // break out of agent loop
+      }
 
-        // Print any text before the JSON as chat
-        const beforeJson = responseText.slice(0, responseText.indexOf("{")).trim();
-        if (beforeJson) {
+      // Check if it's an action plan (JSON) or chat response
+      if (isActionRequest(responseText)) {
+        try {
+          const jsonStr = extractJSON(responseText);
+          if (!jsonStr) throw new Error("No JSON found");
+
+          // Print any text before the JSON as chat
+          const beforeJson = responseText.slice(0, responseText.indexOf("{")).trim();
+          if (beforeJson) {
+            console.log(chalk.green.bold("\nPathClaw › "));
+            printResponse(beforeJson);
+          }
+
+          const plan = JSON.parse(jsonStr) as ActionPlan;
+          history.push({ role: "assistant", content: responseText });
+
+          const approved = await presentPlanAndConfirm(plan);
+          if (!approved) {
+            const msg = "No problem, I cancelled that. Is there anything else you'd like me to do?";
+            console.log(chalk.green.bold("\nPathClaw › "));
+            await typeWriter(chalk.white(msg));
+            history.push({ role: "assistant", content: msg });
+            break;
+          }
+
+          console.log(chalk.cyan("\n⚡ Executing...\n"));
+          const results = await executePlan(plan);
+
+          const feedback = `EXECUTION RESULTS:\n${results.join("\n")}\n\nAnalyze this output. If your overarching goal is complete, reply with a conversational message explaining the final result. If you need to continue working to achieve the goal, output your next ACTION JSON plan.`;
+          history.push({ role: "user", content: feedback });
+          
+          // Loop continues automatically with feedback!
+
+        } catch {
+          // Not valid JSON — treat as chat
           console.log(chalk.green.bold("\nPathClaw › "));
-          printResponse(beforeJson);
+          printResponse(responseText);
+          history.push({ role: "assistant", content: responseText });
+          break;
         }
-
-        const plan = JSON.parse(jsonStr) as ActionPlan;
-        history.push({ role: "assistant", content: beforeJson || plan.summary });
-
-        const approved = await presentPlanAndConfirm(plan);
-        if (!approved) {
-          const msg = "No problem, I cancelled that. Is there anything else you'd like me to do?";
-          console.log(chalk.green.bold("\nPathClaw › "));
-          await typeWriter(chalk.white(msg));
-          history.push({ role: "assistant", content: msg });
-          continue;
-        }
-
-        console.log(chalk.cyan("\n⚡ Executing...\n"));
-        await executePlan(plan);
-
-        const doneMsg = "Done! Everything went smoothly. Want me to do anything else?";
-        console.log(chalk.green.bold("\nPathClaw › "));
-        await typeWriter(chalk.white(doneMsg));
-        history.push({ role: "assistant", content: doneMsg });
-
-      } catch {
-        // Not valid JSON — treat as chat
+      } else {
+        // Pure chat response
         console.log(chalk.green.bold("\nPathClaw › "));
         printResponse(responseText);
         history.push({ role: "assistant", content: responseText });
+        break; // Goal completed!
       }
-    } else {
-      // Pure chat response
-      console.log(chalk.green.bold("\nPathClaw › "));
-      printResponse(responseText);
-      history.push({ role: "assistant", content: responseText });
     }
 
-    // Keep history manageable (trim oldest pairs)
-    if (history.length > 30) history.splice(0, 4);
+    if (stepCount >= MAX_STEPS) {
+      const msg = "I've hit my maximum autonomous steps limit (10). Please review the output above.";
+      console.log(chalk.yellow(`\n⚠️  ${msg}`));
+      history.push({ role: "assistant", content: msg });
+    }
+
+    // Keep history manageable
+    if (history.length > 40) history.splice(0, 10);
   }
 }
