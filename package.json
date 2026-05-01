@@ -1,0 +1,50 @@
+{
+  "name": "pathclaw",
+  "version": "1.0.1",
+  "description": "AI-powered file system optimizer CLI agent",
+  "type": "module",
+  "bin": {
+    "pathclaw": "./dist/index.js"
+  },
+  "main": "./dist/index.js",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/index.ts",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "cli",
+    "ai",
+    "files",
+    "optimizer"
+  ],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/figlet": "^1.7.0",
+    "@types/inquirer": "^9.0.9",
+    "@types/node": "^25.6.0",
+    "@types/node-cron": "^3.0.11",
+    "tsx": "^4.21.0",
+    "typescript": "^6.0.3"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.92.0",
+    "@google/generative-ai": "^0.24.1",
+    "chalk": "^5.6.2",
+    "cli-table3": "^0.6.5",
+    "commander": "^14.0.3",
+    "conf": "^15.1.0",
+    "fast-glob": "^3.3.3",
+    "figlet": "^1.11.0",
+    "inquirer": "^9.3.8",
+    "node-cron": "^4.2.1",
+    "ora": "^9.4.0",
+    "p-limit": "^7.3.0",
+    "pretty-bytes": "^7.1.0"
+  }
+}
