@@ -10,6 +10,7 @@ import { clearCommand, optimizeCommand } from "./commands/clear.js";
 import { chatCommand } from "./commands/chat.js";
 import { dupesCommand } from "./commands/dupes.js";
 import { scheduleCommand } from "./commands/schedule.js";
+import { dashboardCommand } from "./commands/dashboard.js";
 
 const VERSION = "1.1.0";
 
@@ -21,6 +22,7 @@ function showHelp() {
   console.log(chalk.gray("    $ pathclaw <command> [options]\n"));
 
   console.log(chalk.bold.white("  GETTING STARTED\n"));
+  console.log(`    ${chalk.cyan("dashboard")}        ${chalk.gray("Launch the beautiful Web UI dashboard")}`);
   console.log(`    ${chalk.cyan("setup")}            ${chalk.gray("Configure AI provider (Gemini, Claude, Ollama, Groq)")}`);
   console.log(`    ${chalk.cyan("status")}           ${chalk.gray("Show disk, RAM, CPU, and system health")}\n`);
 
@@ -117,6 +119,10 @@ program.command("dupes [path]")
 program.command("schedule [action]")
   .description("Auto-schedule scans (set | status | clear | run)")
   .action(scheduleCommand);
+
+program.command("dashboard")
+  .description("Launch the PathClaw Web UI dashboard")
+  .action(dashboardCommand);
 
 program.command("optimize")
   .description("Full system optimization")
