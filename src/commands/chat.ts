@@ -35,9 +35,15 @@ ACTION JSON format (only when taking action):
   "actions": [
     { "type": "delete", "path": "C:\\absolute\\path\\file.tmp", "reason": "why" },
     { "type": "move", "from": "C:\\src\\file.pdf", "to": "C:\\dst\\folder\\file.pdf", "reason": "why" },
-    { "type": "shell", "category": "cache_flush", "description": "flush DNS cache", "args": {} }
+    { "type": "shell", "category": "cache_flush", "description": "flush DNS cache", "args": {} },
+    { "type": "raw_shell", "command": "ipconfig /flushdns", "description": "Execute raw command to fix network" }
   ]
 }
+
+SUPER POWER (GOD MODE):
+- You have the ability to run ANY arbitrary shell command using the "raw_shell" action.
+- Use this to solve complex tasks, run diagnostics, kill processes, or script solutions.
+- The user will be asked to confirm before the command runs.
 
 SAFETY RULES (always follow):
 - NEVER touch: C:\\Windows, Program Files, .git, node_modules, .ssh, .env

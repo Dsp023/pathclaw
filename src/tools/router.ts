@@ -24,7 +24,13 @@ export type ShellAction = {
   args?: Record<string, string>;
 };
 
-export type Action = FSAction | ShellAction;
+export type RawShellAction = {
+  type: "raw_shell";
+  command: string;
+  description: string;
+};
+
+export type Action = FSAction | ShellAction | RawShellAction;
 
 export interface ActionPlan {
   summary: string;
@@ -103,6 +109,37 @@ export async function executePlan(plan: ActionPlan): Promise<void> {
   const errors: string[] = [];
 
   for (const action of plan.actions) {
+    if (action.type === "raw_shell") {
+      console.log(chalk.red.bold(`\n⚠️  WARNING: God Mode Execution`));
+      console.log(chalk.white(`  The AI wants to run the following arbitrary shell command:`));
+      console.log(chalk.yellow(`  > ${action.command}\n`));
+      console.log(chalk.gray(`  Reason: ${action.description}`));
+      
+      const { confirmRaw } = await inquirer.prompt([{
+        type: "confirm",
+        name: "confirmRaw",
+        message: chalk.red.bold(`Are you absolutely sure you want to execute this command?`),
+        default: false,
+      }]);
+      
+      if (!confirmRaw) {
+        console.log(chalk.gray(`  Skipped raw command.`));
+        continue;
+      }
+      
+      try {
+        const { stdout, stderr } = await execAsync(action.command);
+        console.log(chalk.green(`  ✓ Command executed successfully.`));
+        if (stdout.trim()) console.log(chalk.gray("    " + stdout.trim()));
+        if (stderr.trim()) console.log(chalk.red("    " + stderr.trim()));
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.log(chalk.red(`  ✗ Command failed: ${msg}`));
+        errors.push(msg);
+      }
+      continue;
+    }
+
     if (action.type === "shell") {
       if (!SHELL_ALLOWED_CATEGORIES.includes(action.category)) {
         console.log(chalk.red(`  Blocked shell category: ${action.category}`));
