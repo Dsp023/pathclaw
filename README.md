@@ -46,6 +46,8 @@ pathclaw chat
 | `pathclaw clear` | Clear junk, temp, and cache files |
 | `pathclaw optimize` | Full system optimization |
 | `pathclaw chat` | Natural language mode |
+| `pathclaw dupes [path]` | Interactive duplicate file reviewer |
+| `pathclaw schedule [action]` | Auto-schedule scans (set/status/clear/run) |
 
 ## AI Providers
 
@@ -83,6 +85,21 @@ pathclaw clear           # Clear junk + cache
 pathclaw clear --temp    # Temp files only
 pathclaw clear --cache   # Cache only
 pathclaw clear --force   # Skip confirmation
+```
+
+### Dupes
+```bash
+pathclaw dupes ~/Downloads       # Review duplicates interactively
+pathclaw dupes . --deep          # Include hidden files
+pathclaw dupes ~/Photos --dry-run  # Preview without deleting
+```
+
+### Schedule
+```bash
+pathclaw schedule set        # Configure auto-scan schedule
+pathclaw schedule status     # Show config & scan history
+pathclaw schedule run        # Start scheduler daemon
+pathclaw schedule clear      # Remove schedule
 ```
 
 ### Optimize

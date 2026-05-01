@@ -1,6 +1,6 @@
 {
   "name": "pathclaw",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "description": "AI-powered file system optimizer CLI agent",
   "type": "module",
   "bin": {
