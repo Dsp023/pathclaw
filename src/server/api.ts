@@ -45,7 +45,7 @@ export function createServer() {
   const uiPath = path.join(__dirname, "../../ui/dist");
   app.use(express.static(uiPath));
 
-  app.get("*", (req, res) => {
+  app.use((req, res) => {
     res.sendFile(path.join(uiPath, "index.html"));
   });
 
